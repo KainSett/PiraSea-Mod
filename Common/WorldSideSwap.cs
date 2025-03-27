@@ -1,4 +1,3 @@
-using Terraria.Graphics.Light;
 using Terraria.WorldBuilding;
 
 namespace PiraSea.Common
@@ -10,8 +9,8 @@ namespace PiraSea.Common
             int SettleLiquidsAgainIndex = tasks.FindIndex(genpass => genpass.Name.Equals("Settle Liquids Again"));
             if (SettleLiquidsAgainIndex != -1)
             {
-                tasks.Insert(SettleLiquidsAgainIndex - 1, new WorldSideSwapGenPass("World Side swap", 100f));
-                tasks.Insert(SettleLiquidsAgainIndex, new BiggerCentralOceanGenPass("Bigger central ocean", 100f));
+                tasks.Insert(SettleLiquidsAgainIndex, new WorldSideSwapGenPass("World Side swap", 100f));
+                tasks.Insert(SettleLiquidsAgainIndex + 1, new BiggerCentralOceanGenPass("Bigger central ocean", 100f));
             }
         }
         public class WorldSideSwapGenPass : GenPass
@@ -35,68 +34,113 @@ namespace PiraSea.Common
             }
             protected override void ApplyPass(GenerationProgress progress, GameConfiguration configuration)
             {
-                var Y = spawnTileY - 50;
-                for (int y = spawnTileY - 50; y < spawnTileY + 160; y++)
+                int lowestSandY = spawnTileY;
+
+                for (int x = -1; x != 1; x += 2)
                 {
-                    if (tile[(maxTilesX) / 2 - 1, y].TileType == TileID.Sand)
+                    for (int y = lowestSandY; y < spawnTileY + 200; y++)
                     {
-                        Y = y - 190;
+                        if (tile[spawnTileX + x, y].TileType == TileID.Sand)
+                            lowestSandY = y;
                     }
                 }
-                var leftSide = StructureData.FromWorld((maxTilesX) / 2 - 200, Y, 200, 190);
 
-                for (int y = spawnTileY - 50; y < spawnTileY + 160; y++)
+                var width = maxTilesX / 4;
+                for (int x = spawnTileX - width / 2; x < spawnTileX + width / 2; x++)
                 {
-                    if (tile[(maxTilesX) / 2 + 1, y].TileType == TileID.Sand)
+                    for (int y = spawnTileY - 150; y < spawnTileY - 50 + width / 5; y++)
                     {
-                        Y = y - 190;
-                    }
-                }
-                var rightSide = StructureData.FromWorld((maxTilesX / 2), Y, 200, 190);
+                        var funcY = int.Abs(y - (spawnTileY - 50 + width / 5));
 
+                        if (tile[x, y].TileType != TileID.RainCloud && tile[x, y].TileType != TileID.SnowCloud && tile[x, y].TileType != TileID.Cloud && funcY.CheckBottomBowlFunc(x - spawnTileX, width))
+                            tile[x, y].ClearEverything();
 
-                StructureHelper.API.Generator.GenerateFromData(leftSide, new Point16((maxTilesX) / 2 - 400, spawnTileY - 100));
-                StructureHelper.API.Generator.GenerateFromData(rightSide, new Point16((maxTilesX) / 2 + 200, spawnTileY - 100));
+                        if (y >= spawnTileY - 50 && funcY.BowlFunc(x - spawnTileX, width))
+                            tile[x, y].ResetToType(TileID.Sand);
 
-                List<int> bottom = [];
-                for (int x = 0; x < 500; x++)
-                {
-                    for (int y = 0; y < 160; y++)
-                    {
-                        if (tile[(maxTilesX) / 2 - 250 + x, spawnTileY + 90 - y].TileType == TileID.Sand)
+                        else if (y >= spawnTileY - 50 && funcY * (1f / width) <= 0.18f && funcY.CheckTopBowlFunc(x - spawnTileX, width))
                         {
-                            if (bottom.Count <= x)
-                                bottom.Add(y);
-                            else
-                                bottom[x] = y;
+                            tile[x, y].LiquidAmount = 255;
+                            WorldGen.PlaceLiquid(x, y, (byte)LiquidID.Water, 255);
                         }
                     }
                 }
 
-                for (int i = 1; i < bottom.Count - 1; i++)
+                List<int> ground = [];
+                for (int a = 0; a < 110 + width / 5; a++)
                 {
-                    bottom[i] = (bottom[i] + bottom[i - 1]) / 2;
-                    for (int y = 0; y < bottom[i]; y++)
-                    {
-                        if (tile[(maxTilesX) / 2 - 250 + i, spawnTileY + 90 - y].TileType == TileID.Sand)
-                            break;
-                        else
-                            tile[(maxTilesX) / 2 - 250 + i, spawnTileY + 90 - y].ResetToType(TileID.Sand);
-                    }
+                    ground.Add(a);
                 }
 
-                for (int i = 1; i < bottom.Count - 1; i++)
+                for (int i = 0; i < 2; i++)
                 {
-                    bottom[i] = (bottom[i] + bottom[(i + bottom.Count / 2) % bottom.Count]) / 2;
-                    for (int y = 0; y < bottom[i]; y++)
+                    for (int x = spawnTileX - width / 2; x > spawnTileX - width / 2 - 100; x--)
                     {
-                        if (tile[(maxTilesX) / 2 - 250 + i, spawnTileY + 90 - y].TileType == TileID.Sand)
-                            break;
-                        else
-                            tile[(maxTilesX) / 2 - 250 + i, spawnTileY + 90 - y].ResetToType(TileID.Sand);
+                        for (int y = spawnTileY - 50; y < spawnTileY + 50 + width / 5; y++)
+                        {
+                            if (i == 0)
+                            {
+                                if (y - spawnTileY + 50 > ground[int.Abs(x - spawnTileX - width / 2)] && WorldGen.TileEmpty(x, y))
+                                {
+                                    ground[int.Abs(x - spawnTileX - width / 2)] = y;
+                                }
+                            }
+                            else
+                            {
+                                if (y - spawnTileY + 50 > int.Abs(x - spawnTileX - width / 2) && WorldGen.TileEmpty(x, y))
+                                {
+                                    tile[x, y].ResetToType(TileID.Sand);
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+    public static class Calc
+    {
+        public static bool BowlFunc(this int y, int x, float width)
+        {
+            var Y = y * (1f / width);
+            var X = x * (1f / width);
+
+
+            float bottom = float.Pow(X, 4) / 0.31f;
+            if (Y <= bottom)
+                return false;
+
+            float top = float.Pow(X, 4) / 0.3f + 0.05f;
+            if (Y >= top)
+                return false;
+
+            float sidePeaks = -float.Pow(X, 2) * 0.6f + 0.33f;
+            if (Y >= sidePeaks)
+                return false;
+
+            return true;
+        }
+        public static bool CheckBottomBowlFunc(this int y, int x, float width)
+        {
+            var Y = y * (1f / width);
+            var X = x * (1f / width);
+
+            float bottom = float.Pow(X, 4) / 0.31f;
+            if (Y <= bottom)
+                return false;
+
+            return true;
+        }
+        public static bool CheckTopBowlFunc(this int y, int x, float width)
+        {
+            var Y = y * (1f / width);
+            var X = x * (1f / width);
+
+            float top = float.Pow(X, 4) / 0.3f + 0.05f;
+            if (Y >= top)
+                return true;
+
+            return false;
         }
     }
 }
