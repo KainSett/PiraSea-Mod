@@ -37,6 +37,7 @@
 		<Using Include="Terraria.Audio" />
 		<Using Include="Terraria.DataStructures" />
 		<Using Include="Terraria.ID" />
+		<Using Include="Terraria.ID.TileID" Static="True"/>
 		<Using Include="Terraria.IO" />
 		<Using Include="Terraria.GameContent" />
 		<Using Include="Terraria.Localization" />

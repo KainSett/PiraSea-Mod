@@ -1,3 +1,4 @@
+using Terraria.Graphics.Light;
 using Terraria.WorldBuilding;
 
 namespace PiraSea.Common
@@ -40,23 +41,28 @@ namespace PiraSea.Common
                 {
                     for (int y = lowestSandY; y < spawnTileY + 200; y++)
                     {
-                        if (tile[spawnTileX + x, y].TileType == TileID.Sand)
+                        if (tile[spawnTileX + x, y].TileType == Sand)
                             lowestSandY = y;
                     }
                 }
+
+                HashSet<ushort> blackList = [RainCloud, SnowCloud, TileID.Cloud, BlueDungeonBrick, CrackedBlueDungeonBrick, CrackedGreenDungeonBrick, CrackedPinkDungeonBrick, GreenDungeonBrick, PinkDungeonBrick];
 
                 var width = maxTilesX / 4;
                 for (int x = spawnTileX - width / 2; x < spawnTileX + width / 2; x++)
                 {
                     for (int y = spawnTileY - 150; y < spawnTileY - 50 + width / 5; y++)
                     {
+                        if (blackList.Contains(tile[x, y].TileType))
+                            continue;
+
                         var funcY = int.Abs(y - (spawnTileY - 50 + width / 5));
 
-                        if (tile[x, y].TileType != TileID.RainCloud && tile[x, y].TileType != TileID.SnowCloud && tile[x, y].TileType != TileID.Cloud && funcY.CheckBottomBowlFunc(x - spawnTileX, width))
+                        if (funcY.CheckBottomBowlFunc(x - spawnTileX, width))
                             tile[x, y].ClearEverything();
 
                         if (y >= spawnTileY - 50 && funcY.BowlFunc(x - spawnTileX, width))
-                            tile[x, y].ResetToType(TileID.Sand);
+                            tile[x, y].ResetToType(Sand);
 
                         else if (y >= spawnTileY - 50 && funcY * (1f / width) <= 0.18f && funcY.CheckTopBowlFunc(x - spawnTileX, width))
                         {
@@ -66,35 +72,53 @@ namespace PiraSea.Common
                     }
                 }
 
-                List<int> ground = [];
-                for (int a = 0; a < 110 + width / 5; a++)
-                {
-                    ground.Add(a);
-                }
+                return;
 
-                for (int i = 0; i < 2; i++)
+                var leftPeak = new Point(spawnTileX + 50 - width / 2, spawnTileY - 50);
+                var leftTarget = new Point(spawnTileX - 100 - width / 2, spawnTileY - 50);
+
+                var rightPeak = new Point(spawnTileX - 50 + width / 2, spawnTileY - 50);
+                var rightTarget = new Point(spawnTileX + 100 + width / 2, spawnTileY - 50);
+
+
+                for (int y = spawnTileY - 50; y < spawnTileY + 100; y++)
                 {
-                    for (int x = spawnTileX - width / 2; x > spawnTileX - width / 2 - 100; x--)
+                    if (leftPeak.Y == spawnTileY - 50 && tile[leftPeak.X, y].TileType == Sand)
                     {
-                        for (int y = spawnTileY - 50; y < spawnTileY + 50 + width / 5; y++)
-                        {
-                            if (i == 0)
-                            {
-                                if (y - spawnTileY + 50 > ground[int.Abs(x - spawnTileX - width / 2)] && WorldGen.TileEmpty(x, y))
-                                {
-                                    ground[int.Abs(x - spawnTileX - width / 2)] = y;
-                                }
-                            }
-                            else
-                            {
-                                if (y - spawnTileY + 50 > int.Abs(x - spawnTileX - width / 2) && WorldGen.TileEmpty(x, y))
-                                {
-                                    tile[x, y].ResetToType(TileID.Sand);
-                                }
-                            }
-                        }
+                        leftPeak.Y = y;
+                    }
+
+                    if (rightPeak.Y == spawnTileY - 50 && tile[rightPeak.X, y].TileType == Sand)
+                    {
+                        rightPeak.Y = y;
+                    }
+
+                    if (leftTarget.Y == spawnTileY - 50 && !WorldGen.TileEmpty(leftTarget.X, y))
+                    {
+                        leftTarget.Y = y;
+                    }
+
+                    if (rightTarget.Y == spawnTileY - 50 && !WorldGen.TileEmpty(rightTarget.X, y))
+                    {
+                        rightTarget.Y = y;
                     }
                 }
+
+                var leftHeight = leftPeak.Y - leftTarget.Y;
+                for (int x = spawnTileX - 150 - width / 2; x < spawnTileX + 50 - width / 2; x++)
+                {
+                    for (int y = spawnTileY - 50; y < spawnTileY + 100; y++)
+                    {
+                        if (WorldGen.TileEmpty(x, y) && int.Abs(y - spawnTileY + 50).CheckQuadraticConnectionFunc(int.Abs(x - spawnTileX + 50 + width / 2), 150, int.Abs(leftHeight)))
+                        {
+                            tile[x, y].ResetToType(Sand);
+                        }
+                        else if (!WorldGen.TileEmpty(x, y))
+                            continue;
+                    }
+                }
+
+                var rightHeight = rightPeak.Y - rightTarget.Y;
             }
         }
     }
@@ -141,6 +165,18 @@ namespace PiraSea.Common
                 return true;
 
             return false;
+        }
+        public static bool CheckQuadraticConnectionFunc(this int y, int x, float width, float height)
+        {
+            var Y = y * (1f / width);
+            var X = x * (1f / width);
+            var Height = height * (1f / width);
+
+            float top = Height - float.Pow(X, 2) * Height;
+            if (Y <= top)
+                return false;
+
+            return true;
         }
     }
 }
